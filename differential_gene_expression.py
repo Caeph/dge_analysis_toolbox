@@ -47,10 +47,12 @@ class DGE_parameters:
         self.count_matrix = pd.read_csv(args.count_matrix, sep='\t')
 
         self.sample_filename = args.sample_file
-        self.sample_file = pd.read_csv(args.sample_file, sep='\t')
+        self.sample_file = pd.read_csv(args.sample_file, sep='\t', header=None)
+        self.sample_file.columns = ["groupID", "sampleID"]
 
         self.contrasts_filename = args.contrasts
-        self.contrasts = pd.read_csv(args.contrasts, sep='\t')
+        self.contrasts = pd.read_csv(args.contrasts, sep='\t', header=None)
+        self.contrasts.columns = ["treatment", "control"]
 
         self.organism_info = available_info_on_organisms[args.organism]
 
@@ -60,7 +62,7 @@ class DGE_parameters:
 
     def report(self):
         # required -- filenames and other stuff
-        print("Required files:")
+        print("Input files overview:")
         for filename, dataframe, label in zip(
             [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
             [self.count_matrix, self.sample_file, self.contrasts],
@@ -73,7 +75,7 @@ class DGE_parameters:
             print("--")
 
         print()
-        print("Other parameters")
+        print("Other parameters:")
         for value, label in zip(self.optional_parameters, self.optional_parameter_labels):
             stringified_values = str(value).replace("\n", " ")
             print(f"{label}: {stringified_values}")

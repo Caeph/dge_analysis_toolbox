@@ -1,4 +1,4 @@
-gene_ID	sampleA1	sampleA2	sampleA3	sampleB1	sampleB2	sampleC1	sampleC2	sampleC3
+gene_ID	A1	A2	A3	B1	B2	C1	C2	C3
 gene1	0	0	0	10	10	154	456	234
 gene2	100	110	123	0	0	123	123	165
 gene3	100	110	123	10	20	123	0	0
