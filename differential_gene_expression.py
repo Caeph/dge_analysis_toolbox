@@ -1,6 +1,8 @@
 import argparse
 import pandas as pd
 
+from dge_scripts.general_dge import perform_dge
+
 parser = argparse.ArgumentParser()
 
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -42,7 +44,7 @@ available_info_on_organisms = {
 class DGE_parameters:
     def __init__(self, args):
         self.count_matrix_filename = args.count_matrix
-        self.count_matrix = pd.read_csv(args.count_matrix)
+        self.count_matrix = pd.read_csv(args.count_matrix, sep='\t')
 
         self.sample_filename = args.sample_file
         self.sample_file = pd.read_csv(args.sample_file, sep='\t')
@@ -54,35 +56,38 @@ class DGE_parameters:
 
         # if new parameter is added, it should be added to these lists too
         self.optional_parameters = [self.organism_info]
-        self.parameter_labels = ["organism_info"]
+        self.optional_parameter_labels = ["organism_info"]
 
     def report(self):
         # required -- filenames and other stuff
         print("Required files:")
         for filename, dataframe, label in zip(
-            [self.count_matrix, self.sample_filename, self.contrasts_filename]
+            [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
+            [self.count_matrix, self.sample_file, self.contrasts],
+            ["count matrix", "sample file", "contrasts"]
         ):
             dfsize = len(dataframe)
-            columns = ", ".join(dataframe.columns.values)
+            columns = ", ".join(dataframe.columns)
             print(f"{label}: taken from {filename}, it has {dfsize} data rows")
             print(f"detected columns: {columns}")
             print("--")
 
         print()
         print("Other parameters")
-        for value, label in zip():
+        for value, label in zip(self.optional_parameters, self.optional_parameter_labels):
             stringified_values = str(value).replace("\n", " ")
             print(f"{label}: {stringified_values}")
+        print("--")
+        print()
 
-
-
-def report_setup(args):
-    parameters = DGE_parameters(args)
-    parameters.report()
 
 
 def main(args):
-    report_setup(args)
+    parameters = DGE_parameters(args)
+    parameters.report()
+
+    print("Running general DGE analysis...")
+    perform_dge(parameters)
 
 
 # Press the green button in the gutter to run the script.
