@@ -97,7 +97,15 @@ class DGE_parameters:
         os.makedirs(self.output_dir, exist_ok=False)
 
         # recap params to the output
-
+        with open(os.path.join(self.output_dir, "parameters.tsv"), mode='w') as writer:
+            print("Parameter\tvalue\tinfo", file=writer)
+            for filename, label in zip(
+                    [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
+                    ["count matrix", "sample file", "contrasts"]):
+                print(f"{label}\t{filename}\trequired", file=writer)
+            for value, label in zip(self.optional_parameters, self.optional_parameter_labels):
+                stringified_values = str(value).replace("\n", " ")
+                print(f"{label}\t{stringified_values}\t", file=writer)
 
     def report(self):
         # required -- filenames and other stuff
