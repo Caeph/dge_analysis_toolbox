@@ -1,5 +1,6 @@
 .venv/
 test_input
+output-dge-analysis*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

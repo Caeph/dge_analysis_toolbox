@@ -62,15 +62,35 @@ def perform_dge(parameters):
                                                       samples_in_control,
                                                       treatment_group,
                                                       control_group)
+        deseq_results["gene_annotation"] = __annotate_gene_names(parameters, deseq_results.index)
 
-        edgeR_results = __perform_analysis_with_edgeR(prepped_matrix_subset,
+        edgeR_results = __perform_analysis_with_edger(prepped_matrix_subset,
                                                       samples_in_treatment,
                                                       samples_in_control,
                                                       treatment_group,
                                                       control_group)
+        edgeR_results["gene_annotation"] = __annotate_gene_names(parameters, edgeR_results.index)
 
-        # TODO write full results
+        print(f"Filtering the acquired results with parameters")
+        filtered_deseq_results, padj_deseq_results = __filter_results(deseq_results,
+                                                                      parameters.padj_alpha,
+                                                                      parameters.fold_change_threshold)
+        filtered_edger_results, padj_edger_results = __filter_results(edgeR_results,
+                                                                      parameters.padj_alpha,
+                                                                      parameters.fold_change_threshold)
 
+        # write results
+        sample_pair_ident = f"treatment={treatment_group}_control={control_group}"
+        __write_results_for_dataset([],
+                                    [],
+                                    sample_pair_ident,
+                                    parameters.output_dir)
+        __write_results_for_dataset([],
+                                    [],
+                                    sample_pair_ident,
+                                    parameters.output_dir)
+
+        # TODO write results
 
         break
 
@@ -125,7 +145,7 @@ def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, s
     return results_dds.sort_values(by="pvalue", ascending=True)
 
 
-def __perform_analysis_with_edgeR(prepped_matrix_subset, samples_in_treatment, samples_in_control,
+def __perform_analysis_with_edger(prepped_matrix_subset, samples_in_treatment, samples_in_control,
                                   treatment_name, control_name,
                                   ):
     # conditions = [*[treatment_name for _ in range(len(samples_in_treatment))],
@@ -149,4 +169,28 @@ def __perform_analysis_with_edgeR(prepped_matrix_subset, samples_in_treatment, s
     results = pandas2ri.rpy2py(results_edger)
     results['logFC'] = results['logFC'] * -1
     # this is already ordered
+    # unify the column names in both dataframes
+    # edger: logFC     logCPM        PValue           FDR, geneID in index
+    # deseq: 'baseMean', 'log2FoldChange', 'lfcSE', 'stat', 'pvalue', 'padj',
+    #        'baseMean_treatment', 'baseMean_control'
+    # change:   logFC -> log2FoldChange
+    #           PValue -> pvalue
+    #           FDR -> padj
+    results = results.rename(columns={
+        "logFC": "log2FoldChange",
+        "PValue": "pvalue",
+        "FDR": "padj"
+    })
     return results
+
+
+def __filter_results(results_df, padj_alpha, logfc_threshold):
+    padj_mask = results_df["pvalue"] < padj_alpha
+    logfc_mask = results_df["log2FoldChange"] > logfc_threshold
+    mask = padj_mask & logfc_mask
+    return results_df[mask], results_df[padj_mask]
+
+
+def __write_results_for_dataset(result_dataframe_lst, tags_lst, sample_pair_id, output_path):
+    for df, tag in zip(result_dataframe_lst, tags_lst):
+        ...
