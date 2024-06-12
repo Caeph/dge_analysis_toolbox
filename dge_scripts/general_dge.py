@@ -26,7 +26,7 @@ def __subset_matrix(parameters, treatment_group, control_group):
     return relevant_count_matrix_subset, samples_in_treatment, samples_in_control
 
 
-def _filter_matrix_on_cpm_threshold(rnaseq_matrix, cpm_genecount_min_threshold=2):
+def __filter_matrix_on_cpm_threshold(rnaseq_matrix, cpm_genecount_min_threshold=2):
     r_rnaseqMatrix = pandas2ri.py2rpy(rnaseq_matrix)
     normed_r_rnaseqMatrix = edgeR.cpm(r_rnaseqMatrix)
     normed_r_rnaseqMatrix = pd.DataFrame(normed_r_rnaseqMatrix,
@@ -51,16 +51,25 @@ def perform_dge(parameters):
                                                                                   treatment_group,
                                                                                   control_group)
         matrix_subset = matrix_subset.round(decimals=0)
-        prepped_matrix_subset = _filter_matrix_on_cpm_threshold(
-            matrix_subset)  # the bottom read count threshold could be adjusted here
+        prepped_matrix_subset = __filter_matrix_on_cpm_threshold(
+            matrix_subset, cpm_genecount_min_threshold=2)  # the bottom read count threshold could be adjusted here
+
+        # just to be sure, reorder the columns in prepped matrix subset
+        prepped_matrix_subset = prepped_matrix_subset[[*samples_in_treatment, *samples_in_control]]
 
         deseq_results = __perform_analysis_with_deseq(prepped_matrix_subset,
                                                       samples_in_treatment,
                                                       samples_in_control,
                                                       treatment_group,
-                                                      control_group,
-                                                      parameters)
-        gene_annotations = __annotate_gene_names(parameters, deseq_results.index)
+                                                      control_group)
+
+        edgeR_results = __perform_analysis_with_edgeR(prepped_matrix_subset,
+                                                      samples_in_treatment,
+                                                      samples_in_control,
+                                                      treatment_group,
+                                                      control_group)
+
+        # TODO write full results
 
 
         break
@@ -74,7 +83,6 @@ def __annotate_gene_names(parameters, gene_col):
 
 def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, samples_in_control,
                                   treatment_name, control_name,
-                                  parameters
                                   ):
     # tutorial says counts in matrix should NOT be normalized
     conditions = pd.DataFrame({"conditions": [*[treatment_name for _ in range(len(samples_in_treatment))],
@@ -82,8 +90,6 @@ def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, s
                                },
                               index=[*samples_in_treatment, *samples_in_control]
                               )
-    # just to be sure, reorder the columns in prepped matrix subset
-    prepped_matrix_subset = prepped_matrix_subset[[*samples_in_treatment, *samples_in_control]]
 
     # do the analysis in R
     processing_func = ro.r('''
@@ -96,10 +102,9 @@ def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, s
       return(dds)
     }
     ''')
-    # TODO uklidit to tak, aby vysledek byl dataframe
-
-    colData = pandas2ri.py2rpy(conditions)
     rnaseqMatrix = pandas2ri.py2rpy(prepped_matrix_subset)
+    colData = pandas2ri.py2rpy(conditions)
+
     dds = processing_func(rnaseqMatrix, colData)
     results_dds = ro.r('''
     function(dds, treatment, control) {
@@ -120,6 +125,28 @@ def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, s
     return results_dds.sort_values(by="pvalue", ascending=True)
 
 
-def __perform_analysis_with_edgeR(parameters, prepped_matrix_subset):
-    results = ...
+def __perform_analysis_with_edgeR(prepped_matrix_subset, samples_in_treatment, samples_in_control,
+                                  treatment_name, control_name,
+                                  ):
+    # conditions = [*[treatment_name for _ in range(len(samples_in_treatment))],
+    #               *[control_name for _ in range(len(samples_in_control))]]
+    rnaseqMatrix = pandas2ri.py2rpy(prepped_matrix_subset)
+    processing_func = ro.r('''
+        function(rnaseqMatrix, treatment, control, treatment_size, control_size) {
+            conditions = factor(c(rep(treatment, treatment_size), rep(control, control_size)))
+            exp_study = DGEList(counts=rnaseqMatrix, group=conditions)
+            exp_study = calcNormFactors(exp_study)
+            exp_study = estimateDisp(exp_study)
+            et = exactTest(exp_study, pair=c(treatment, control))
+            tTags = topTags(et,n=NULL)
+            result_table = data.frame(tTags$table)
+            return(result_table)
+        }
+        ''')
+    results_edger = processing_func(rnaseqMatrix,
+                                    treatment_name, control_name,
+                                    len(samples_in_treatment), len(samples_in_control))
+    results = pandas2ri.rpy2py(results_edger)
+    results['logFC'] = results['logFC'] * -1
+    # this is already ordered
     return results
