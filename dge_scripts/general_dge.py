@@ -56,11 +56,11 @@ def perform_dge(parameters):
         # just to be sure, reorder the columns in prepped matrix subset
         prepped_matrix_subset = prepped_matrix_subset[[*samples_in_treatment, *samples_in_control]]
 
-        deseq_results = __perform_analysis_with_deseq(prepped_matrix_subset,
-                                                      samples_in_treatment,
-                                                      samples_in_control,
-                                                      treatment_group,
-                                                      control_group)
+        deseq_results, deseq_dds = __perform_analysis_with_deseq(prepped_matrix_subset,
+                                                                            samples_in_treatment,
+                                                                            samples_in_control,
+                                                                            treatment_group,
+                                                                            control_group)
         deseq_results["gene_annotation"] = __annotate_gene_names(parameters,
                                                                  deseq_results.index.values)
 
@@ -94,6 +94,16 @@ def perform_dge(parameters):
                                     [f"edger_{item}" for item in files],
                                     dir_path)
 
+        # return stuff
+        all_deseq_results = [deseq_dds,
+                             deseq_results,
+                             padj_deseq_results,
+                             filtered_deseq_results]
+        all_edger_results = [edgeR_results,
+                             padj_edger_results,
+                             filtered_edger_results]
+        return all_deseq_results, all_edger_results
+
 
 def __annotate_gene_names(parameters, gene_col):
     # database_for_annot = importr(parameters.organism_info["database"])
@@ -104,11 +114,11 @@ def __annotate_gene_names(parameters, gene_col):
     mapping_func = ro.r('''
     function(gene_col) {
         library(AnnotationDbi)
-        library('''+db+''')
-        mapped = mapIds('''+db+''',
+        library(''' + db + ''')
+        mapped = mapIds(''' + db + ''',
                         keys=gene_col,
                         column=\"SYMBOL\",
-                        keytype=\"'''+parameters.gene_annotation_resource+''''\",
+                        keytype=\"''' + parameters.gene_annotation_resource + ''''\",
                         multiVals=\"first\",
         )
         return(mapped)
@@ -160,7 +170,7 @@ def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, s
     results_dds['baseMean_control'] = counts[samples_in_control].T.mean()
     results_dds['padj'] = results_dds['padj'].fillna(1)
 
-    return results_dds.sort_values(by="pvalue", ascending=True)
+    return results_dds.sort_values(by="pvalue", ascending=True), dds
 
 
 def __perform_analysis_with_edger(prepped_matrix_subset, samples_in_treatment, samples_in_control,
@@ -211,6 +221,5 @@ def __filter_results(results_df, padj_alpha, logfc_threshold):
 
 def __write_results_for_dataset(result_dataframe_lst, tags_lst, dir_path):
     for df, tag in zip(result_dataframe_lst, tags_lst):
-        file_path = os.path.join(dir_path, tag+".tsv")
+        file_path = os.path.join(dir_path, tag + ".tsv")
         df.to_csv(file_path, sep='\t')
-

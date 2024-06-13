@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from dge_scripts.general_dge import perform_dge
+from dge_scripts.pca_clustering import pca_cluster_on_deseq, pca_cluster_on_edger
 
 parser = argparse.ArgumentParser()
 
@@ -47,7 +48,7 @@ parser.add_argument("--fold_change_threshold", default=1, type=float,
                     """)
 parser.add_argument("--gene_annotation_resource", default=None, type=str,
                     help="""
-                    Resource to use for gene annotation. If None, no annotation is performed.
+                    Resource to use for gene annotation. If undefined, no annotation is performed.
                     Supported options: ENSEMBL
                     """)
 parser.add_argument("--output_directory_path", default=None, type=str,
@@ -149,7 +150,10 @@ def main(args):
     parameters.report()
 
     print("Running general DGE analysis...")
-    perform_dge(parameters)
+    all_deseq_results, all_edger_results = perform_dge(parameters)
+    deseq_pca_fitted, deseq_correlation_matrix = pca_cluster_on_deseq(all_deseq_results, parameters)
+
+    # prep pca and hierarchical clustering
 
 
 # Press the green button in the gutter to run the script.
