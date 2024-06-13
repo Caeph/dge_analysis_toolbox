@@ -1,9 +1,6 @@
 import os
 
 import pandas as pd
-import numpy as np
-from scipy import stats
-import rpy2
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
