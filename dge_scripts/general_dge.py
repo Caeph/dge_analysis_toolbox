@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -62,14 +64,16 @@ def perform_dge(parameters):
                                                       samples_in_control,
                                                       treatment_group,
                                                       control_group)
-        deseq_results["gene_annotation"] = __annotate_gene_names(parameters, deseq_results.index)
+        deseq_results["gene_annotation"] = __annotate_gene_names(parameters,
+                                                                 deseq_results.index.values)
 
         edgeR_results = __perform_analysis_with_edger(prepped_matrix_subset,
                                                       samples_in_treatment,
                                                       samples_in_control,
                                                       treatment_group,
                                                       control_group)
-        edgeR_results["gene_annotation"] = __annotate_gene_names(parameters, edgeR_results.index)
+        edgeR_results["gene_annotation"] = __annotate_gene_names(parameters,
+                                                                 edgeR_results.index.values)
 
         print(f"Filtering the acquired results with parameters")
         filtered_deseq_results, padj_deseq_results = __filter_results(deseq_results,
@@ -81,24 +85,41 @@ def perform_dge(parameters):
 
         # write results
         sample_pair_ident = f"treatment={treatment_group}_control={control_group}"
-        __write_results_for_dataset([],
-                                    [],
-                                    sample_pair_ident,
-                                    parameters.output_dir)
-        __write_results_for_dataset([],
-                                    [],
-                                    sample_pair_ident,
-                                    parameters.output_dir)
-
-        # TODO write results
-
-        break
+        dir_path = os.path.join(parameters.output_dir, sample_pair_ident)
+        os.makedirs(dir_path)
+        files = ["full_dge",
+                 f"padj={parameters.padj_alpha}_filtered_dge",
+                 f"fc={parameters.fold_change_threshold}_padj={parameters.padj_alpha}_filtered_dge"]
+        __write_results_for_dataset([deseq_results, padj_deseq_results, filtered_deseq_results],
+                                    [f"deseq_{item}" for item in files],
+                                    dir_path)
+        __write_results_for_dataset([edgeR_results, padj_edger_results, filtered_edger_results],
+                                    [f"edger_{item}" for item in files],
+                                    dir_path)
 
 
 def __annotate_gene_names(parameters, gene_col):
-    ...
-    # TODO
-    return gene_col
+    # database_for_annot = importr(parameters.organism_info["database"])
+    # annotation_dbi.mapIds(database_for_annot)
+    if parameters.gene_annotation_resource is None:
+        return gene_col
+    db = parameters.organism_info["database"]
+    mapping_func = ro.r('''
+    function(gene_col) {
+        library(AnnotationDbi)
+        library('''+db+''')
+        mapped = mapIds('''+db+''',
+                        keys=gene_col,
+                        column=\"SYMBOL\",
+                        keytype=\"'''+parameters.gene_annotation_resource+''''\",
+                        multiVals=\"first\",
+        )
+        return(mapped)
+    } 
+    ''')
+    mapped = mapping_func(gene_col)
+
+    return mapped
 
 
 def __perform_analysis_with_deseq(prepped_matrix_subset, samples_in_treatment, samples_in_control,
@@ -191,6 +212,8 @@ def __filter_results(results_df, padj_alpha, logfc_threshold):
     return results_df[mask], results_df[padj_mask]
 
 
-def __write_results_for_dataset(result_dataframe_lst, tags_lst, sample_pair_id, output_path):
+def __write_results_for_dataset(result_dataframe_lst, tags_lst, dir_path):
     for df, tag in zip(result_dataframe_lst, tags_lst):
-        ...
+        file_path = os.path.join(dir_path, tag+".tsv")
+        df.to_csv(file_path, sep='\t')
+

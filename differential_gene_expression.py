@@ -31,7 +31,7 @@ requiredNamed.add_argument("--contrasts", type=str,
                            )
 
 # optional parameters
-parser.add_argument("--organism", default="homo", type=str,
+parser.add_argument("--organism", default="mus", type=str,
                     help="""
                     Organism to work on. Supported: mus (Mus musculus) | homo (Homo sapiens). 
                     Default: homo.
@@ -39,11 +39,16 @@ parser.add_argument("--organism", default="homo", type=str,
                     )
 parser.add_argument("--padj_alpha", default=0.05, type=float,
                     help="""
-                    FDR maximum value for results selection.
+                    FDR maximum threshold for results selection.
                     """)
 parser.add_argument("--fold_change_threshold", default=1, type=float,
                     help="""
                     Minimal log fold change threshold
+                    """)
+parser.add_argument("--gene_annotation_resource", default=None, type=str,
+                    help="""
+                    Resource to use for gene annotation. If None, no annotation is performed.
+                    Supported options: ENSEMBL
                     """)
 parser.add_argument("--output_directory_path", default=None, type=str,
                     help="""
@@ -53,12 +58,13 @@ parser.add_argument("--output_directory_path", default=None, type=str,
 
 available_info_on_organisms = {
     "mus": dict(organism_name="Mus musculus",
-                 database="org.Mm.eg.db",
-                 organism_shortcut='mmu'),
+                database="org.Mm.eg.db",
+                organism_shortcut='mmu'),
     "homo": dict(organism_name="Homo sapiens",
                  database="org.Hs.eg.db",
                  organism_shortcut='hsa')
 }
+
 
 class DGE_parameters:
     def __init__(self, args):
@@ -77,14 +83,22 @@ class DGE_parameters:
         self.organism_info = available_info_on_organisms[args.organism]
         self.padj_alpha = args.padj_alpha
         self.fold_change_threshold = args.fold_change_threshold
+        self.gene_annotation_resource = args.gene_annotation_resource
 
         # if new parameter is added, it should be added to these lists too
-        self.optional_parameters = [self.organism_info, self.padj_alpha, self.fold_change_threshold]
-        self.optional_parameter_labels = ["organism info", "FDR maximum threshold", "fold change minimum threshold"]
+        # they serve for reporting, no practical measure though
+        self.__optional_parameters = [self.organism_info,
+                                      self.padj_alpha,
+                                      self.fold_change_threshold,
+                                      self.gene_annotation_resource]
+        self.__optional_parameter_labels = ["organism info",
+                                            "FDR maximum threshold",
+                                            "fold change minimum threshold",
+                                            "gene annotation resource"]
 
         # output prep
         if args.output_directory_path is None:
-            now = datetime.datetime.now().strftime("%d-")
+            now = datetime.datetime.now().strftime("%d-%m-%Y-%H:%M:%S")
             build = ["output-dge-analysis", now]
             for param, val in zip(["padj", "fc"],
                                   [self.padj_alpha, self.fold_change_threshold]):
@@ -103,7 +117,7 @@ class DGE_parameters:
                     [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
                     ["count matrix", "sample file", "contrasts"]):
                 print(f"{label}\t{filename}\trequired", file=writer)
-            for value, label in zip(self.optional_parameters, self.optional_parameter_labels):
+            for value, label in zip(self.__optional_parameters, self.__optional_parameter_labels):
                 stringified_values = str(value).replace("\n", " ")
                 print(f"{label}\t{stringified_values}\t", file=writer)
 
@@ -111,9 +125,9 @@ class DGE_parameters:
         # required -- filenames and other stuff
         print("Input files overview:")
         for filename, dataframe, label in zip(
-            [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
-            [self.count_matrix, self.sample_file, self.contrasts],
-            ["count matrix", "sample file", "contrasts"]
+                [self.count_matrix_filename, self.sample_filename, self.contrasts_filename],
+                [self.count_matrix, self.sample_file, self.contrasts],
+                ["count matrix", "sample file", "contrasts"]
         ):
             dfsize = len(dataframe)
             columns = ", ".join(dataframe.columns)
@@ -123,12 +137,11 @@ class DGE_parameters:
 
         print()
         print("Other parameters:")
-        for value, label in zip(self.optional_parameters, self.optional_parameter_labels):
+        for value, label in zip(self.__optional_parameters, self.__optional_parameter_labels):
             stringified_values = str(value).replace("\n", " ")
             print(f"{label}: {stringified_values}")
         print("--")
         print()
-
 
 
 def main(args):
