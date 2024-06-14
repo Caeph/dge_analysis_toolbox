@@ -7,6 +7,7 @@ import pandas as pd
 
 from dge_scripts.general_dge import perform_dge
 from dge_scripts.pca_clustering import pca_cluster_on_deseq, pca_cluster_on_edger
+import dge_scripts.reporting as reporting
 
 parser = argparse.ArgumentParser()
 
@@ -150,10 +151,31 @@ def main(args):
     parameters.report()
 
     print("Running general DGE analysis...")
-    all_deseq_results, all_edger_results = perform_dge(parameters)
-    deseq_pca_fitted, deseq_correlation_matrix = pca_cluster_on_deseq(all_deseq_results, parameters)
+    full_results = perform_dge(parameters)
+    figures_dir = os.path.join(parameters.output_dir, "figures")
+    os.makedirs(figures_dir)
 
-    # prep pca and hierarchical clustering
+    for treatment_id, control_id, all_deseq_results, all_edger_results in full_results:
+        deseq_pca_fitted, deseq_pca_info, deseq_correlation_matrix = pca_cluster_on_deseq(all_deseq_results,
+                                                                                          parameters)
+
+        # plot the plots
+        plot_files = []
+        current_figures_dir = os.path.join(figures_dir, f"{treatment_id}__vs__{control_id}".replace(" ", "_"))
+        os.makedirs(current_figures_dir)
+
+        deseq_tag = f"DESeq2_DGE_{treatment_id}_vs_{control_id}"
+        edger_tag = f"edgeR_DGE_{treatment_id}_vs_{control_id}"
+
+        # clustering
+        path = reporting.plot_clustering(deseq_correlation_matrix, deseq_tag, current_figures_dir, parameters)
+        plot_files.append((f"{deseq_tag} -- hierarchical clustering", path))
+
+        # PCA
+        path = reporting.plot_pca(deseq_pca_fitted, deseq_pca_info, deseq_tag, current_figures_dir, parameters)
+        plot_files.append((f"{deseq_tag} -- pca", path))
+
+    # \plot the plots
 
 
 # Press the green button in the gutter to run the script.

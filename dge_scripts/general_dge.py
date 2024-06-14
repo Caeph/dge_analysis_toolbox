@@ -42,6 +42,7 @@ def __filter_matrix_on_cpm_threshold(rnaseq_matrix, cpm_genecount_min_threshold=
 
 def perform_dge(parameters):
     to_compare = parameters.contrasts
+    full_results = []  # treatment, control, deseq, edger
     for i, row in to_compare.iterrows():
         treatment_group = row["treatment"]
         control_group = row['control']
@@ -81,7 +82,7 @@ def perform_dge(parameters):
                                                                       parameters.fold_change_threshold)
 
         # write results
-        sample_pair_ident = f"treatment={treatment_group}_control={control_group}"
+        sample_pair_ident = f"{treatment_group}__vs__{control_group}"
         dir_path = os.path.join(parameters.output_dir, sample_pair_ident)
         os.makedirs(dir_path)
         files = ["full_dge",
@@ -102,7 +103,10 @@ def perform_dge(parameters):
         all_edger_results = [edgeR_results,
                              padj_edger_results,
                              filtered_edger_results]
-        return all_deseq_results, all_edger_results
+        full_results.append([treatment_group, control_group, all_deseq_results, all_edger_results])
+    print("DGE analysis is done.")
+    return full_results
+
 
 
 def __annotate_gene_names(parameters, gene_col):
