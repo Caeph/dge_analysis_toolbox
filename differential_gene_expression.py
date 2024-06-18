@@ -87,16 +87,21 @@ class DGE_parameters:
         self.fold_change_threshold = args.fold_change_threshold
         self.gene_annotation_resource = args.gene_annotation_resource
 
+        # no of extreme genes to show annotation for
+        self.annotate_extremes_no = 20
+
         # if new parameter is added, it should be added to these lists too
         # they serve for reporting, no practical measure though
         self.__optional_parameters = [self.organism_info,
                                       self.padj_alpha,
                                       self.fold_change_threshold,
-                                      self.gene_annotation_resource]
+                                      self.gene_annotation_resource,
+                                      self.annotate_extremes_no]
         self.__optional_parameter_labels = ["organism info",
                                             "FDR maximum threshold",
                                             "fold change minimum threshold",
-                                            "gene annotation resource"]
+                                            "gene annotation resource",
+                                            "no of extreme genes to annotate"]
 
         # output prep
         if args.output_directory_path is None:
@@ -167,12 +172,51 @@ def main(args):
         deseq_tag = f"DESeq2_DGE_{treatment_id}_vs_{control_id}"
         edger_tag = f"edgeR_DGE_{treatment_id}_vs_{control_id}"
 
+        # update counts:
+        deseq_df = all_deseq_results[-1]
+        deseq_df["baseMean+1"] = deseq_df["baseMean"] + 1
+
+        # volcano and MA
+        for df, tag, counts_col in zip([all_deseq_results[-1], all_edger_results[-1]],
+                                       [deseq_tag, edger_tag],
+                                       ["baseMean+1", "logCPM"]
+                                       ):
+            # basic volcano
+            path = reporting.plot_volcano(df,
+                                          tag,
+                                          current_figures_dir,
+                                          parameters)
+            plot_files.append((f"{tag} -- basic volcano", path))
+
+            # advanced volcano
+            path = reporting.plot_volcano(df,
+                                          tag,
+                                          current_figures_dir,
+                                          parameters,
+                                          advanced=True)
+            plot_files.append((f"{tag} -- advanced volcano", path))
+
+            # MA plot
+            path = reporting.plot_MA(df,
+                                     tag,
+                                     current_figures_dir,
+                                     counts_col,
+                                     parameters)
+            plot_files.append((f"{tag} -- MA plot", path))
+
         # clustering
-        path = reporting.plot_clustering(deseq_correlation_matrix, deseq_tag, current_figures_dir, parameters)
+        path = reporting.plot_clustering(deseq_correlation_matrix,
+                                         deseq_tag,
+                                         current_figures_dir,
+                                         parameters)
         plot_files.append((f"{deseq_tag} -- hierarchical clustering", path))
 
         # PCA
-        path = reporting.plot_pca(deseq_pca_fitted, deseq_pca_info, deseq_tag, current_figures_dir, parameters)
+        path = reporting.plot_pca(deseq_pca_fitted,
+                                  deseq_pca_info,
+                                  deseq_tag,
+                                  current_figures_dir,
+                                  parameters)
         plot_files.append((f"{deseq_tag} -- pca", path))
 
     # \plot the plots

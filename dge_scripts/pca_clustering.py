@@ -6,7 +6,7 @@ from rpy2.robjects.packages import importr
 
 
 def pca_cluster_on_deseq(all_deseq_results, parameters):
-    deseq_dds, deseq_results, padj_deseq_results, filtered_deseq_results = all_deseq_results
+    deseq_dds, deseq_results = all_deseq_results
     deseq2 = importr('DESeq2')
     rbase = importr('base')
     rld = deseq2.rlog(deseq_dds, blind=True)

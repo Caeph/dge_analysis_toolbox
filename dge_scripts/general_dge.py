@@ -98,11 +98,13 @@ def perform_dge(parameters):
         # return stuff
         all_deseq_results = [deseq_dds,
                              deseq_results,
-                             padj_deseq_results,
-                             filtered_deseq_results]
+                             # padj_deseq_results,
+                             # filtered_deseq_results
+                             ]
         all_edger_results = [edgeR_results,
-                             padj_edger_results,
-                             filtered_edger_results]
+                             # padj_edger_results,
+                             # filtered_edger_results
+                             ]
         full_results.append([treatment_group, control_group, all_deseq_results, all_edger_results])
     print("DGE analysis is done.")
     return full_results
