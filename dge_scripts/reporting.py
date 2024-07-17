@@ -4,11 +4,12 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
+from matplotlib_venn import venn2
 
 
 def plot_clustering(correlation_matrix, tag, out_dir, parameters, linkage='average'):
     print(f"Plotting hierarchical clustering with {linkage}: {tag}...")
-    sns.clustermap(correlation_matrix, method=linkage, cmap='viridis', linewidths=.5)
+    sns.clustermap(correlation_matrix, method=linkage, cmap='Spectral_r', linewidths=.5)
     # plt.title(f'{tag}\n{linkage} linkage hier. clustering')
 
     filetag = tag.replace(' ', '_')  # just to be safe
@@ -25,9 +26,9 @@ def plot_pca(fitted_pca, pca_explained_ratio, tag, out_dir, parameters):
 
     pc1_label, pc2_label = pc_labels[0], pc_labels[1]
 
-    fitted_pca = pd.merge(fitted_pca, parameters.sample_file, left_index=True, right_on='sampleID', how='inner')
-    p1 = sns.scatterplot(x=0,  # Horizontal axis
-                         y=1,  # Vertical axis
+    fitted_pca = pd.merge(fitted_pca, parameters.sample_file, on='sampleID', how='inner')
+    p1 = sns.scatterplot(x="PCA component 1",  # Horizontal axis
+                         y="PCA component 2",  # Vertical axis
                          data=fitted_pca,  # Data source
                          size=10,
                          hue="groupID",
@@ -36,7 +37,7 @@ def plot_pca(fitted_pca, pca_explained_ratio, tag, out_dir, parameters):
 
     # annotation
     for line in range(0, fitted_pca.shape[0]):
-        p1.text(fitted_pca[0].iloc[line] + 0.1, fitted_pca[1].iloc[line],
+        p1.text(fitted_pca["PCA component 1"].iloc[line] + 0.1, fitted_pca["PCA component 2"].iloc[line],
                 fitted_pca["sampleID"][line], horizontalalignment='left',
                 size='medium', color='black', weight='semibold')
 
@@ -154,3 +155,22 @@ def plot_MA(results_df, tag, out_dir, counts_col_name, parameters):
     plt.savefig(filepath)
     plt.close()
     return filepath
+
+
+def plot_venn_diagram(edger_df, deseq_df, tag_edger, tag_deseq, out_dir, parameters):
+    print(f"Plotting overlap between {tag_edger } and {tag_deseq}...")
+
+    set_edger = set(edger_df.index)
+    set_deseq = set(deseq_df.index)
+
+    venn2([set_deseq, set_edger], set_labels=[tag_deseq, tag_edger])
+
+    tag = f"venn__{tag_deseq}__{tag_edger}"
+    filetag = tag.replace(' ', '_')  # just to be safe
+    filepath = os.path.join(out_dir, f"{filetag}_venn.png")
+    plt.title(f'{tag}\nVenn diagram comparison')
+    plt.tight_layout()
+    plt.savefig(filepath)
+    plt.close()
+    return filepath
+

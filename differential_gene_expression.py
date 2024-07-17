@@ -26,7 +26,7 @@ requiredNamed.add_argument("--sample_file", type=str,
                            )
 requiredNamed.add_argument("--contrasts", type=str,
                            help="""
-                    A path to a tab delimited file indicating which groups should be comparised in a pairwise manner. 
+                    A path to a tab delimited file indicating which groups should be compared in a pairwise manner. 
                     Keep always the same structure: 1st column - treatment, 2nd column - control
                     """,
                            required=True
@@ -151,6 +151,43 @@ class DGE_parameters:
         print()
 
 
+def venn_diagrams(all_edger_results, all_deseq_results, out_dir, parameters):
+    venn_tags = []  # tag, path
+
+    edger_df, deseq_df = all_edger_results[-1], all_deseq_results[-1]
+
+    # fdr filter
+    edger_df_sub = edger_df[edger_df["padj"] < parameters.padj_alpha]
+    tag_edger, tag_deseq = f"edgeR padj<{parameters.padj_alpha}", f"DESeq2 padj<{parameters.padj_alpha}"
+    deseq_df_sub = deseq_df[deseq_df['padj'] < parameters.padj_alpha]
+    filepath = reporting.plot_venn_diagram(edger_df_sub,
+                                           deseq_df_sub,
+                                           tag_edger,
+                                           tag_deseq,
+                                           out_dir,
+                                           parameters)
+    venn_tags.append(
+        [f"Venn {tag_edger} vs. {tag_deseq}", filepath]
+    )
+
+    # fdr and fold change filter
+    edger_df_sub = edger_df_sub[edger_df_sub["log2FoldChange"] > parameters.fold_change_threshold]
+    deseq_df_sub = deseq_df_sub[deseq_df_sub["log2FoldChange"] > parameters.fold_change_threshold]
+    tag_edger = f"edgeR padj<{parameters.padj_alpha} FC>{parameters.fold_change_threshold}"
+    tag_deseq = f"DESeq2 padj<{parameters.padj_alpha} FC>{parameters.fold_change_threshold}"
+    filepath = reporting.plot_venn_diagram(edger_df_sub,
+                                           deseq_df_sub,
+                                           tag_edger,
+                                           tag_deseq,
+                                           out_dir,
+                                           parameters)
+    venn_tags.append(
+        [f"Venn {tag_edger} vs. {tag_deseq}", filepath]
+    )
+
+    return venn_tags
+
+
 def main(args):
     parameters = DGE_parameters(args)
     parameters.report()
@@ -218,6 +255,13 @@ def main(args):
                                   current_figures_dir,
                                   parameters)
         plot_files.append((f"{deseq_tag} -- pca", path))
+
+        # venn diagrams with comparison
+        venn_files = venn_diagrams(all_edger_results,
+                                   all_deseq_results,
+                                   current_figures_dir,
+                                   parameters)
+        plot_files.extend(venn_files)
 
     # \plot the plots
 
